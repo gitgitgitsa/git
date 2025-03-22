@@ -1,0 +1,436 @@
+/* SignIn.css - Custom styling for sign-in page */
+
+/* Main container */
+.signin-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(to bottom, #f3f4f6, #e5e7eb);
+    padding: 3rem 1rem;
+  }
+  
+  .signin-wrapper {
+    max-width: 28rem;
+    width: 100%;
+  }
+  
+  /* Logo styling */
+  .logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .company-logo {
+    width: 6rem;
+    height: 6rem;
+    border-radius: 50%;
+    background-color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Main card styling */
+  .signin-card, .signup-card {
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    padding: 2rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .signin-card {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+  
+  /* Header styling */
+  .signin-header {
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+  
+  .signin-title {
+    font-size: 1.875rem;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 0.25rem;
+  }
+  
+  .signin-subtitle {
+    font-size: 0.875rem;
+    color: #6b7280;
+  }
+  
+  /* Error alert */
+  .error-alert {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+    color: #991b1b;
+    border: 1px solid #f87171;
+    border-radius: 0.5rem;
+    background-color: #fee2e2;
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .error-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+  }
+  
+  .error-message {
+    font-weight: 500;
+  }
+  
+  /* Form styling */
+  .signin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.25rem;
+  }
+  
+  .form-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+  }
+  
+  .forgot-password {
+    font-size: 0.875rem;
+  }
+  
+  .forgot-link {
+    font-weight: 500;
+    color: #2563eb;
+    text-decoration: none;
+    transition: color 0.15s ease-in-out;
+  }
+  
+  .forgot-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+  }
+  
+  /* Input styling */
+  .input-container {
+    position: relative;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+  
+  .form-input {
+    width: 100%;
+    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.15s ease-in-out;
+    background-color: white;
+  }
+  
+  .form-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  }
+  
+  .form-input.input-error {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 1px #ef4444;
+  }
+  
+  .form-input::placeholder {
+    color: #9ca3af;
+  }
+  
+  .form-input:disabled {
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+  }
+  
+  .input-icon-left, .input-icon-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+  }
+  
+  .input-icon-left {
+    left: 0;
+    padding-left: 0.75rem;
+    pointer-events: none;
+  }
+  
+  .input-icon-right {
+    right: 0;
+    padding-right: 0.75rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    transition: color 0.15s ease-in-out;
+  }
+  
+  .input-icon-right:hover {
+    color: #4b5563;
+  }
+  
+  .input-icon-right:disabled {
+    cursor: not-allowed;
+    color: #9ca3af;
+  }
+  
+  .field-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: #9ca3af;
+  }
+  
+  .error-text {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #dc2626;
+  }
+  
+  /* Form options */
+  .form-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .remember-option {
+    display: flex;
+    align-items: center;
+  }
+  
+  .checkbox {
+    height: 1rem;
+    width: 1rem;
+    color: #2563eb;
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+  }
+  
+  .checkbox-label {
+    margin-left: 0.5rem;
+    font-size: 0.875rem;
+    color: #374151;
+  }
+  
+  /* Info tooltip */
+  .info-tooltip-container {
+    position: relative;
+  }
+  
+  .info-button {
+    background: none;
+    border: none;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: color 0.15s ease-in-out;
+  }
+  
+  .info-button:hover {
+    color: #4b5563;
+  }
+  
+  .info-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+  
+  .tooltip-content {
+    position: absolute;
+    right: 0;
+    width: 15rem;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+    background-color: white;
+    border-radius: 0.375rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 10;
+    font-size: 0.75rem;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+  }
+  
+  .info-tooltip-container:hover .tooltip-content {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  /* Button styling */
+  .form-actions {
+    margin-top: 1rem;
+  }
+  
+  .signin-button {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: white;
+    background-color: #2563eb;
+    transition: background-color 0.15s ease-in-out;
+    cursor: pointer;
+  }
+  
+  .signin-button:hover {
+    background-color: #1d4ed8;
+  }
+  
+  .signin-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+  }
+  
+  .signin-button:disabled {
+    background-color: #93c5fd;
+    cursor: not-allowed;
+  }
+  
+  .button-content {
+    display: flex;
+    align-items: center;
+  }
+  
+  .button-icon {
+    width: 1rem;
+    height: 1rem;
+    margin-left: 0.5rem;
+    transition: transform 0.15s ease-in-out;
+  }
+  
+  .signin-button:hover .button-icon {
+    transform: translateX(0.25rem);
+  }
+  
+  /* Spinner for loading state */
+  .spinner {
+    animation: spin 1s linear infinite;
+    margin-right: 0.5rem;
+    height: 1rem;
+    width: 1rem;
+  }
+  
+  .spinner-track {
+    opacity: 0.25;
+  }
+  
+  .spinner-head {
+    opacity: 0.75;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Signup card */
+  .signup-card {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+    text-align: center;
+  }
+  
+  .signup-text {
+    font-size: 0.875rem;
+    color: #6b7280;
+  }
+  
+  .signup-link {
+    font-weight: 500;
+    color: #2563eb;
+    text-decoration: none;
+    transition: color 0.15s ease-in-out;
+  }
+  
+  .signup-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+  }
+  
+  /* Footer */
+  .signin-footer {
+    margin-top: 1.5rem;
+    text-align: center;
+  }
+  
+  .copyright-text {
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+  
+  .footer-links {
+    margin-top: 0.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+  }
+  
+  .footer-link {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-decoration: none;
+    transition: color 0.15s ease-in-out;
+  }
+  
+  .footer-link:hover {
+    color: #4b5563;
+    text-decoration: underline;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 640px) {
+    .signin-card, .signup-card {
+      padding: 1.5rem 1rem;
+    }
+    
+    .signin-title {
+      font-size: 1.5rem;
+    }
+  }
