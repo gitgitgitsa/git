@@ -9,7 +9,7 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Create users table if not exists
+    # Users table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +26,7 @@ def init_db():
         )
     ''')
 
-    # Create licenses table if not exists
+    # Licenses table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS licenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,9 +38,25 @@ def init_db():
         )
     ''')
 
+    # Create vehicles table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS vehicles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            registration_number TEXT NOT NULL,
+            make TEXT,
+            model TEXT,
+            year INTEGER,
+            color TEXT,
+            mot_status TEXT DEFAULT 'Pending',
+            approval_status TEXT DEFAULT 'Pending',
+            FOREIGN KEY (username) REFERENCES users(username)
+        )
+    ''')
+
     conn.commit()
     conn.close()
-    print("Database initialized successfully with users and licenses tables.")
+    print("Database initialized with users, licenses, and vehicles tables.")
 
 if __name__ == "__main__":
     init_db()

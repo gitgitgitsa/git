@@ -243,6 +243,83 @@ def deny_license_request(request_id):
 
     return jsonify({"message": "License request denied"}), 200
 
+@app.route('/api/vehicles/register', methods=['POST'])
+def register_vehicle():
+    data = request.json
+    username = data.get("username")
+    registration_number = data.get("registration_number")
+    make = data.get("make")
+    model = data.get("model")
+    year = data.get("year")
+    color = data.get("color")
+
+    if not username or not registration_number:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO vehicles (username, registration_number, make, model, year, color)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (username, registration_number, make, model, year, color))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Vehicle registered and pending approval"}), 201
+
+@app.route('/api/vehicles/<username>', methods=['GET'])
+def get_user_vehicles(username):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM vehicles WHERE username = ?", (username,))
+    vehicles = cursor.fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in vehicles]), 200
+
+@app.route('/api/vehicles', methods=['GET'])
+def get_all_vehicles():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM vehicles")
+    vehicles = cursor.fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in vehicles]), 200
+
+
+@app.route('/api/vehicles/<int:vehicle_id>/approve', methods=['PUT'])
+def approve_vehicle(vehicle_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE vehicles SET approval_status = 'Approved' WHERE id = ?", (vehicle_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Vehicle approved"}), 200
+
+@app.route('/api/vehicles/<int:vehicle_id>/deny', methods=['PUT'])
+def deny_vehicle(vehicle_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE vehicles SET approval_status = 'Denied' WHERE id = ?", (vehicle_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Vehicle denied"}), 200
+
+@app.route('/api/vehicles/<int:vehicle_id>/mot', methods=['PUT'])
+def update_mot_status(vehicle_id):
+    data = request.json
+    new_status = data.get("mot_status")
+
+    if new_status not in ["Valid", "Invalid", "Expired"]:
+        return jsonify({"error": "Invalid MOT status"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE vehicles SET mot_status = ? WHERE id = ?", (new_status, vehicle_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "MOT status updated"}), 200
+
+
 # ------------------- END LICENSE ENDPOINTS -------------------
 
 if __name__ == '__main__':
