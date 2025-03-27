@@ -121,7 +121,13 @@ const SignIn = () => {
         )}
 
         {/* Card */}
-        <div className={`bg-white rounded-2xl shadow-xl border p-8 ${darkMode ? "bg-gray-800 border-gray-700 text-white" : ""}`}>
+        <div
+              className={`rounded-2xl shadow-xl border p-8 transition ${
+                darkMode
+                  ? "bg-gray-800 border-gray-700 text-white"
+                  : "bg-white border-gray-200 text-black"
+              }`}
+            >
           <div className="flex items-center mb-6">
             <div className="w-full h-px bg-gray-200" />
             <span className="px-4 text-sm font-medium text-gray-500 whitespace-nowrap">

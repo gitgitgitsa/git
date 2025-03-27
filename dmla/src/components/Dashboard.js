@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -28,7 +30,34 @@ const Dashboard = () => {
   const [allRequests, setAllRequests] = useState([]);
   const [refreshRequestsFlag, setRefreshRequestsFlag] = useState(false);
 
+
+  // State for Vehicles Tab functionality
+  const [vehicles, setVehicles] = useState([]);
+  const [registration_number, setRegistrationNumber] = useState("");
+  const [make, setMake] = useState("");
+  const [model, setModel] = useState("");
+  const [year, setYear] = useState("");
+  const [color, setColor] = useState("");
+  const [vehicleTab, setVehicleTab] = useState("Registered Vehicles");
+
+
+
+
+  // Fetch vehicles for user or admin
+  const fetchVehiclesWithUsername = async (uname) => {
+    const endpoint =
+      uname.toLowerCase() === "admin"
+        ? "http://localhost:5000/api/vehicles"
+        : `http://localhost:5000/api/vehicles/${encodeURIComponent(uname)}`;
+    const res = await fetch(endpoint);
+    const data = await res.json();
+    if (Array.isArray(data)) setVehicles(data);
+  };
+  
+
+
   useEffect(() => {
+    
     const storedUser = JSON.parse(localStorage.getItem("userPreference"));
     const storedProfile = JSON.parse(localStorage.getItem("userProfileData"));
     const storedImage = localStorage.getItem("userProfileImage");
@@ -38,6 +67,7 @@ const Dashboard = () => {
     // 💥 SET username immediately
   if (storedUser?.username) {
     setUsername(storedUser.username);
+    fetchVehiclesWithUsername(storedUser.username);
   } else {
     console.warn("No username found in localStorage!");
   }
@@ -118,17 +148,41 @@ const Dashboard = () => {
   // };
 
 
+  const handleVehicleAction = async (id, action) => {
+    const res = await fetch(`http://localhost:5000/api/vehicles/${id}/${action}`, {
+      method: "PUT",
+    });
+    const data = await res.json();
+    data.message ? toast.success(data.message) : toast.error(data.error);
+    fetchVehiclesWithUsername(username);
+  };
+  
+  const handleMOTChange = async (id, status) => {
+    const res = await fetch(`http://localhost:5000/api/vehicles/${id}/mot`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mot_status: status }),
+    });
+    const data = await res.json();
+    data.message ? toast.success(data.message) : toast.error(data.error);
+    fetchVehiclesWithUsername(username);
+  };
+  
+
+
   const handleApproveRequest = async (id) => {
     try {
       const res = await fetch(`http://localhost:5000/api/license/request/${id}/approve`, {
         method: "PUT",
       });
       const data = await res.json();
-      alert(data.message || "Approved successfully.");
+      toast.error(data.error || "Approved successfully.");
+
+      
       setRefreshRequestsFlag((prev) => !prev); // trigger refresh
     } catch (err) {
       console.error("Approval error:", err);
-      alert("Failed to approve request.");
+      toast.error("Failed to approve request.");
     }
   };
   
@@ -138,11 +192,11 @@ const Dashboard = () => {
         method: "PUT",
       });
       const data = await res.json();
-      alert(data.message || "Denied successfully.");
+      data.message ? toast.success(data.message) : toast.error("Failed to deny.");
       setRefreshRequestsFlag((prev) => !prev); // trigger refresh
     } catch (err) {
       console.error("Denial error:", err);
-      alert("Failed to deny request.");
+      toast.error("Failed to deny request.");
     }
   };
 
@@ -165,7 +219,7 @@ const Dashboard = () => {
 
   const handleSaveProfile = () => {
     localStorage.setItem("userProfileData", JSON.stringify(profile));
-    alert("Profile saved locally!");
+    toast.success("✅ Profile saved locally!");
   };
 
   // const toggleDarkMode = () => {
@@ -179,11 +233,11 @@ const Dashboard = () => {
   const handleApplyLicense = async (e) => {
     e.preventDefault();
     if (profile.licenseNumber !== "N/A") {
-      alert("You already have a license. You cannot apply for a new one.");
+      toast.error("You already have a license. You cannot apply for a new one.");
       return;
     }
     if (!newLicenseType) {
-      alert("Please enter a license type.");
+      toast.error("Please enter a license type.");
       return;
     }
     const storedUser = JSON.parse(localStorage.getItem("userPreference"));
@@ -200,7 +254,7 @@ const Dashboard = () => {
       }),
     });
     const data = await res.json();
-    alert(data.message || data.error);
+    data.message ? toast.success(data.message) : toast.error(data.error);
   };
 
   // Renew Existing License
@@ -211,11 +265,11 @@ const Dashboard = () => {
     const diffTime = expiryDate - today;
     const diffDays = diffTime / (1000 * 60 * 60 * 24);
     if (diffDays > 30) {
-      alert("License expiry is not within one month; renewal is not allowed yet.");
+      toast.error("License expiry is not within one month; renewal is not allowed yet.");
       return;
     }
     if (!renewalNewExpiry) {
-      alert("Please enter a new expiry date for renewal.");
+      toast.error("Please enter a new expiry date for renewal.");
       return;
     }
     const res = await fetch("http://localhost:5000/api/license/renew", {
@@ -227,7 +281,7 @@ const Dashboard = () => {
       }),
     });
     const data = await res.json();
-    alert(data.message || data.error);
+    data.message ? toast.success(data.message) : toast.error(data.error);
   };
 
   // Check License Status: fetch all requests for this user
@@ -237,7 +291,7 @@ const Dashboard = () => {
     if (res.ok && Array.isArray(data)) {
       setLicenseRequests(data);
     } else {
-      alert(data.error || "No license requests found.");
+      toast.error(data.error || "No license requests found.");
     }
   };
 
@@ -245,6 +299,33 @@ const Dashboard = () => {
 
   // Read stored username directly from localStorage for admin check
   const storedUsername = JSON.parse(localStorage.getItem("userPreference"))?.username || "";
+
+  const renderVehicleTabs = () => {
+    const isAdmin = username.toLowerCase() === "admin";
+    const tabs = ["Registered Vehicles"];
+    if (!isAdmin) tabs.push("Register New");
+    if (isAdmin) tabs.push("MOT Status");
+  
+    return (
+      <div className="flex gap-4 mb-6">
+        {tabs.map((tab, index) => (
+          <button
+            key={index}
+            onClick={() => setVehicleTab(tab)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              vehicleTab === tab
+                ? "bg-indigo-600 text-white"
+                : darkMode
+                ? "bg-gray-700 text-white"
+                : "bg-indigo-100 text-indigo-800"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+    );
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -424,19 +505,168 @@ const Dashboard = () => {
           </div>
         );
 
-      case "vehicle":
-        return (
-          <div className="p-8">
-            <h2 className="text-4xl font-semibold mb-4">Vehicle Section</h2>
-            <p>This section is reserved for managing your registered vehicles.</p>
-            <ul className="list-disc mt-4 pl-6">
-              <li>View registered vehicles</li>
-              <li>Update vehicle details</li>
-              <li>Pay vehicle tax</li>
-              <li>Check MOT status</li>
-            </ul>
-          </div>
-        );
+       
+  case "vehicle":
+  return (
+    <div className="p-8 space-y-8 w-full">
+      <h2 className="text-4xl font-semibold mb-6">Vehicle Management</h2>
+
+      {/* Vehicle Section Tabs */}
+      {renderVehicleTabs()}
+
+      {/* Tab Content */}
+      {vehicleTab === "Register New" && username.toLowerCase() !== "admin" && (
+      <div className="border p-6 rounded-lg">
+        <h3 className="text-2xl font-semibold mb-3">Register a Vehicle</h3>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const res = await fetch("http://localhost:5000/api/vehicles/register", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                username,
+                registration_number,
+                make,
+                model,
+                year,
+                color,
+              }),
+            });
+            const data = await res.json();
+            data.message ? toast.success(data.message) : toast.error(data.error);
+
+            setRefreshRequestsFlag((prev) => !prev);
+          }}
+          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
+          {[
+            ["Registration Number", registration_number, setRegistrationNumber],
+            ["Make", make, setMake],
+            ["Model", model, setModel],
+            ["Year", year, setYear],
+            ["Color", color, setColor],
+          ].map(([label, value, setter]) => (
+            <div key={label}>
+              <label className="block font-medium">{label}</label>
+              <input
+                value={value}
+                onChange={(e) => setter(e.target.value)}
+                className={`w-full p-2 rounded border ${
+                  darkMode
+                    ? "bg-gray-800 text-white border-gray-600"
+                    : "bg-white border-gray-300"
+                }`}
+                required={label === "Registration Number"}
+              />
+            </div>
+          ))}
+          <button
+            type="submit"
+            className="col-span-2 bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
+          >
+            Submit
+          </button>
+        </form>
+      </div>
+    )}
+
+
+    {vehicleTab === "Registered Vehicles" && (
+      <div className="overflow-x-auto border rounded-lg">
+        <table className={`min-w-full text-left text-sm ${
+          darkMode ? "bg-gray-800 text-white" : "bg-white text-black"
+        }`}>
+          <thead className={darkMode ? "bg-gray-700" : "bg-indigo-100"}>
+            <tr>
+              {["ID", "User", "Reg. No.", "Make", "Model", "Year", "Color", "Approval", "MOT", ...(username.toLowerCase() === "admin" ? ["Actions"] : [])].map((th) => (
+                <th key={th} className="px-4 py-3 border-b font-medium">{th}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {vehicles.map((v) => (
+              <tr key={v.id} className="border-t">
+                <td className="px-4 py-2">{v.id}</td>
+                <td className="px-4 py-2">{v.username}</td>
+                <td className="px-4 py-2">{v.registration_number}</td>
+                <td className="px-4 py-2">{v.make}</td>
+                <td className="px-4 py-2">{v.model}</td>
+                <td className="px-4 py-2">{v.year}</td>
+                <td className="px-4 py-2">{v.color}</td>
+                <td className="px-4 py-2">{v.approval_status}</td>
+                <td className="px-4 py-2">{v.mot_status}</td>
+                {username.toLowerCase() === "admin" && (
+                  <td className="px-4 py-2 space-x-1">
+                    {v.approval_status === "Pending" && (
+                      <>
+                        <button
+                          onClick={() => handleVehicleAction(v.id, "approve")}
+                          className="px-2 py-1 bg-green-600 text-white rounded"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleVehicleAction(v.id, "deny")}
+                          className="px-2 py-1 bg-red-600 text-white rounded"
+                        >
+                          Deny
+                        </button>
+                      </>
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+
+    {vehicleTab === "MOT Status" && username.toLowerCase() === "admin" && (
+      <div className="overflow-x-auto border rounded-lg">
+        <table className={`min-w-full text-left text-sm ${
+          darkMode ? "bg-gray-800 text-white" : "bg-white text-black"
+        }`}>
+          <thead className={darkMode ? "bg-gray-700" : "bg-indigo-100"}>
+            <tr>
+              {["ID", "Reg. No.", "Make", "Model", "MOT Status", "Change Status"].map((th) => (
+                <th key={th} className="px-4 py-3 border-b font-medium">{th}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {vehicles.map((v) => (
+              <tr key={v.id} className="border-t">
+                <td className="px-4 py-2">{v.id}</td>
+                <td className="px-4 py-2">{v.registration_number}</td>
+                <td className="px-4 py-2">{v.make}</td>
+                <td className="px-4 py-2">{v.model}</td>
+                <td className="px-4 py-2">{v.mot_status}</td>
+                <td className="px-4 py-2">
+                  <select
+                    value={v.mot_status}
+                    onChange={(e) => handleMOTChange(v.id, e.target.value)}
+                    className={`mt-1 p-1 rounded text-sm ${
+                      darkMode ? "bg-gray-700 text-white" : "bg-white"
+                    }`}
+                  >
+                    {["Pending","Valid", "Invalid", "Expired"].map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    </div>
+  );
+        
 
       case "settings":
         return (
@@ -573,6 +803,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-center w-full max-w-5xl mx-auto">
         {renderContent()}
       </div>
+      <ToastContainer position="top-center" autoClose={3000} />
     </div>
   );
 };

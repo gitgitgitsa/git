@@ -92,7 +92,14 @@ const SignUp = () => {
           </div>
         )}
 
-        <div className={`bg-white rounded-2xl shadow-xl border p-8 ${darkMode ? "bg-gray-800 border-gray-700 text-white" : ""}`}>
+          <div
+            className={`rounded-2xl shadow-xl border p-8 transition ${
+              darkMode
+                ? "bg-gray-800 border-gray-700 text-white"
+                : "bg-white border-gray-200 text-black"
+            }`}
+          >
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {[
               { label: "Full Name", name: "full_name", type: "text" },
