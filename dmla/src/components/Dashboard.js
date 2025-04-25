@@ -4,6 +4,8 @@ import { LogOut, Moon, Sun } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import SettingsScreen from './SettingsScreen'; // Adjust path if it's in a different folder
+
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -669,12 +671,7 @@ const Dashboard = () => {
         
 
       case "settings":
-        return (
-          <div className="p-8">
-            <h2 className="text-4xl font-semibold mb-4">Settings</h2>
-            <p>All preferences are now handled through the dashboard header.</p>
-          </div>
-        );
+        return <SettingsScreen darkMode={darkMode} />;
 
         case "manageRequests":
           return (

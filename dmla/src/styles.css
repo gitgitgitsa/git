@@ -1,3 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+.high-contrast {
+    background-color: #000 !important;
+    color: #ff0 !important;
+  }
+  
+  .high-contrast button,
+  .high-contrast input,
+  .high-contrast select {
+    background-color: #111 !important;
+    color: #ff0 !important;
+    border: 2px solid #ff0 !important;
+  }
+  
+  .high-contrast a {
+    color: #0ff !important;
+  }

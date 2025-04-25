@@ -16,5 +16,15 @@ function App() {
     </Router>
   );
 }
+const savedFontSize = JSON.parse(localStorage.getItem("userSettings"))?.fontSize;
+if (savedFontSize) {
+  const root = document.documentElement;
+  root.style.fontSize =
+    savedFontSize === "small"
+      ? "14px"
+      : savedFontSize === "large"
+      ? "18px"
+      : "16px";
+}
 
 export default App;
