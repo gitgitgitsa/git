@@ -6,7 +6,7 @@ import hashlib
 from datetime import datetime, timedelta
 
 
-# Initialize DB
+# Initialise DB
 init_db()
 
 app = Flask(__name__)
