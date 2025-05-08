@@ -3,6 +3,7 @@ import { Button } from "../components/ui/Button";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
+import DashboardAnalytics from "./DashboardAnalytics";
 import "react-toastify/dist/ReactToastify.css";
 import SettingsScreen from './SettingsScreen'; // Adjust path if it's in a different folder
 
@@ -11,7 +12,20 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("profile");
   const [darkMode, setDarkMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(""); // State for search query
+  const [users, setUsers] = useState([]); // State for storing search results
   const [username, setUsername] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [analytics, setAnalytics] = useState({
+    total_users: 0,
+    pending_licenses: 0,
+    pending_vehicles: 0,
+    license_types: [],
+    mot_statuses: [],
+  });
   const [profile, setProfile] = useState({
     name: "",
     email: "",
@@ -55,7 +69,142 @@ const Dashboard = () => {
     const data = await res.json();
     if (Array.isArray(data)) setVehicles(data);
   };
+  const fetchAnalytics = async () => {
+    const res = await fetch("http://localhost:5000/api/admin/analytics");
+    const data = await res.json();
+    if (res.ok) {
+      console.log(data); // Log to see data in the console
+    } else {
+      console.error("Failed to fetch analytics", data);
+    }
+  };
+  const handleSearch = async () => {
+    try {
+      console.log("Searching for:", searchQuery); // Debugging line to check if searchQuery is being passed
+      const res = await fetch(`http://localhost:5000/api/admin/search_users?query=${searchQuery}`);
+      const data = await res.json();
   
+      console.log("Search Results:", data); // Debugging line to inspect the response data
+  
+      if (res.ok) {
+        setUsers(data); // Update the users state with the search results
+      } else {
+        toast.error(data.error || "No users found.");
+      }
+    } catch (error) {
+      console.error("Search failed:", error);
+      toast.error("An error occurred while performing the search.");
+    }
+  };
+  
+
+  const handleDeleteUser = async (username) => {
+    const res = await fetch(`http://localhost:5000/api/admin/delete_user/${username}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json();
+    toast.success(data.message);
+  };
+
+  const handleResetPassword = async (username) => {
+    const res = await fetch(`http://localhost:5000/api/admin/reset_password/${username}`, {
+      method: 'PUT',
+    });
+    const data = await res.json();
+    toast.success(data.message);
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+  
+    if (newPassword !== confirmNewPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+  
+    try {
+      const res = await fetch("http://localhost:5000/api/user/change_password", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: username,
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        }),
+      });
+  
+      const data = await res.json();
+  
+      if (res.ok) {
+        toast.success("Password changed successfully!");
+        // Optionally, clear the password fields after success
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+      } else {
+        toast.error(data.error || "Failed to change password.");
+      }
+    } catch (error) {
+      console.error("Password change failed:", error);
+      toast.error("An error occurred while changing the password.");
+    }
+  };
+  
+  
+  
+
+  const fetchAuditLogs = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/audit_logs");  // Endpoint should match what you have in Flask backend
+      const data = await response.json();
+  
+      if (response.ok) {
+        setAuditLogs(data);  // Set state for audit logs
+      } else {
+        toast.error("Failed to fetch audit logs.");
+      }
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      toast.error("An error occurred while fetching audit logs.");
+    }
+  };
+
+  // useEffect(() => {
+  //   const fetchLogs = async () => {
+  //     const res = await fetch("http://localhost:5000/api/audit_logs");
+  //     const data = await res.json();
+  //     console.log(data);  // Add this to inspect the fetched data
+  //     setLogs(data);
+  //   };
+  //   fetchLogs();
+  // }, []);
+  
+
+  useEffect(() => {
+    if (username?.toLowerCase() === "admin") {
+      fetchAuditLogs(); // Fetch audit logs
+    }
+  }, [username]);
+  
+
+  useEffect(() => {
+    if (username.toLowerCase() === "admin") {
+      fetchAnalytics(); // Fetch analytics for admin
+    }
+  }, [username]);
+
+  useEffect(() => {
+    if (activeTab === "dashboard" && username?.toLowerCase() === "admin") {
+      fetch("http://localhost:5000/api/admin/analytics")
+        .then((res) => res.json())
+        .then((data) => {
+          setAnalytics(data);
+        })
+        .catch((err) => console.error("Failed to fetch analytics:", err));
+    }
+  }, [activeTab, username]);
 
 
   useEffect(() => {
@@ -333,6 +482,7 @@ const Dashboard = () => {
     switch (activeTab) {
       case "profile":
         return (
+          
           <div className="p-8 space-y-8">
             <h2 className="text-4xl font-semibold mb-4">Profile Information</h2>
             <div className="flex items-center space-x-8">
@@ -351,6 +501,7 @@ const Dashboard = () => {
                 />
               </div>
             </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {[
                 { label: "Name", name: "name", value: profile.name },
@@ -398,6 +549,7 @@ const Dashboard = () => {
               </ul>
             </div>
           </div>
+        
         );
 
       case "license":
@@ -668,7 +820,102 @@ const Dashboard = () => {
 
     </div>
   );
-        
+
+    case "auditLogs":
+      // Admin Analytics Section
+    return username.toLowerCase() === "admin" ? (
+      <>
+
+        {/* Audit Logs */}
+        <div className="p-8">
+          <h2 className="text-3xl font-semibold">Audit Logs</h2>
+          {auditLogs.length > 0 ? (
+            <ul>
+              {auditLogs.map((log) => (
+                <li key={log.id}>
+                  <p>
+                    <strong>{log.action}</strong>: {log.details} (at {log.timestamp})
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No audit logs available.</p>
+          )}
+        </div>
+      </>
+    ) : (
+      <p>You are not authorized to view the analytics or audit logs.</p>
+    );
+
+    case "userSearch":
+      return (
+        <div className="p-8 space-y-6">
+          <h2 className="text-3xl font-semibold">User Search & Management</h2>
+          <div className="flex gap-4 items-center">
+          <input
+            type="text"
+            placeholder="Search by username or email"
+            className={`p-2 border rounded-lg ${darkMode ? "text-white bg-gray-800" : "text-black bg-white"}`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+            <button
+              onClick={handleSearch}
+              className="bg-indigo-600 text-white p-2 rounded-lg"
+            >
+              Search
+            </button>
+          </div>
+
+          {/* Displaying the search results */}
+          {users.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-2xl">Search Results</h3>
+              <ul className="list-disc pl-5">
+                {users.map((user) => (
+                  <li key={user.id} className="flex justify-between items-center">
+                    <p>
+                      <strong>{user.username}</strong> ({user.email})
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDeleteUser(user.username)}
+                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => handleResetPassword(user.username)}
+                        className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                      >
+                        Reset Password
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    case "dashboard":
+  return username.toLowerCase() === "admin" ? (
+    <>
+      {/* Admin Dashboard Analytics */}
+      <div className="p-8">
+        <h2 className="text-3xl font-semibold">Admin Analytics</h2>
+        <p>Total Users: {analytics.total_users}</p>
+        <p>Pending Licenses: {analytics.pending_licenses}</p>
+        <p>Pending Vehicles: {analytics.pending_vehicles}</p>
+        <p>License Types: {analytics.license_types.map((type) => type[0]).join(", ")}</p>
+        <p>MOT Statuses: {analytics.mot_statuses.map((status) => status[0]).join(", ")}</p>
+      </div>
+    </>
+  ) : (
+    <p>You are not authorized to view the analytics or audit logs.</p>
+  );
+
 
       case "settings":
         return <SettingsScreen darkMode={darkMode} />;
@@ -761,41 +1008,41 @@ const Dashboard = () => {
       }`}
     >
       <nav className="w-full flex justify-between items-center mb-12">
-        <h1 className={`text-4xl font-extrabold ${darkMode ? "text-indigo-300" : "text-indigo-600"}`}>
-          Dashboard
-        </h1>
-        <div className="flex gap-4 items-center">
-          {[
-            "profile",
-            "license",
-            "vehicle",
-            "settings",
-            ...(JSON.parse(localStorage.getItem("userPreference"))?.username?.toLowerCase() === "admin"
-              ? ["manageRequests"]
-              : []),
-          ].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`transition px-4 py-2 rounded-lg ${
-                activeTab === tab ? "font-bold underline" : ""
-              } ${darkMode ? "text-indigo-200 hover:text-white" : "text-blue-600 hover:text-indigo-800"}`}
-            >
-              {tab === "manageRequests" ? "Manage Requests" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-          {/* 🌙 Dark Mode Icon Toggle */}
-          <button onClick={toggleDarkMode} className="p-2 hover:scale-110 transition">
-            {darkMode ? <Sun className="text-yellow-400" size={24} /> : <Moon className="text-gray-600" size={24} />}
-          </button>
-          <Button
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-red-600 text-white hover:bg-red-700"
-          >
-            <LogOut size={20} /> Logout
-          </Button>
-        </div>
-      </nav>
+  <h1 className={`text-4xl font-extrabold ${darkMode ? "text-indigo-300" : "text-indigo-600"}`}>
+    Dashboard
+  </h1>
+  <div className="flex gap-4 items-center">
+    {[
+      "profile",
+      "license",
+      "vehicle",
+      "settings",
+      "userSearch",  // Add this line for User Search tab
+      ...(JSON.parse(localStorage.getItem("userPreference"))?.username?.toLowerCase() === "admin"
+        ? ["manageRequests", "dashboard", "auditLogs"]
+        : []),
+    ].map((tab) => (
+      <button
+        key={tab}
+        onClick={() => setActiveTab(tab)}
+        className={`transition px-4 py-2 rounded-lg ${activeTab === tab ? "font-bold underline" : ""} ${darkMode ? "text-indigo-200 hover:text-white" : "text-blue-600 hover:text-indigo-800"}`}
+      >
+        {tab === "manageRequests" ? "Manage Requests" : tab === "dashboard" ? "Admin Dashboard" : tab === "auditLogs" ? "Audit Logs" : tab === "userSearch" ? "User Search" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+      </button>
+    ))}
+    {/* 🌙 Dark Mode Icon Toggle */}
+    <button onClick={toggleDarkMode} className="p-2 hover:scale-110 transition">
+      {darkMode ? <Sun className="text-yellow-400" size={24} /> : <Moon className="text-gray-600" size={24} />}
+    </button>
+    <Button
+      onClick={handleLogout}
+      className="flex items-center gap-2 bg-red-600 text-white hover:bg-red-700"
+    >
+      <LogOut size={20} /> Logout
+    </Button>
+  </div>
+</nav>
+
 
       <div className="flex items-center justify-center w-full max-w-5xl mx-auto">
         {renderContent()}

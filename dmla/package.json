@@ -12,6 +12,7 @@
     "i18next-browser-languagedetector": "^8.0.5",
     "lucide-react": "^0.477.0",
     "react": "^19.0.0",
+    "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.0.0",
     "react-i18next": "^15.5.1",
     "react-router-dom": "^7.3.0",
