@@ -215,7 +215,7 @@ const Dashboard = () => {
     const dark = localStorage.getItem("darkMode") === "true";
     setDarkMode(dark);
 
-    // 💥 SET username immediately
+    //  SET username immediately
   if (storedUser?.username) {
     setUsername(storedUser.username);
     fetchVehiclesWithUsername(storedUser.username);
