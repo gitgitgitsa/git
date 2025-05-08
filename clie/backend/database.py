@@ -53,6 +53,14 @@ def init_db():
             FOREIGN KEY (username) REFERENCES users(username)
         )
     ''')
+    
+    # Audit Logs table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT,
+        details TEXT,
+        timestamp TEXT
+    )''')
 
     conn.commit()
     conn.close()
