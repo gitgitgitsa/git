@@ -19,6 +19,10 @@ const Dashboard = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [auditLogs, setAuditLogs] = useState([]);
+  const [transferRequests, setTransferRequests] = useState([]);
+  const [requestSubTab, setRequestSubTab] = useState("license");
+  const [taxAmount, setTaxAmount] = useState(null);
+  const [transactionId, setTransactionId] = useState("");
   const [analytics, setAnalytics] = useState({
     total_users: 0,
     pending_licenses: 0,
@@ -78,6 +82,52 @@ const Dashboard = () => {
       console.error("Failed to fetch analytics", data);
     }
   };
+
+
+
+  const handleTransferVehicle = async (vehicleId) => {
+  const newUsername = prompt("Enter the username to transfer this vehicle to:");
+  if (!newUsername) return;
+
+  const res = await fetch(`http://localhost:5000/api/vehicles/transfer_request`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    from_user: username,
+    to_user: newUsername,
+    vehicle_id: vehicleId,
+  }),
+});
+
+  const data = await res.json();
+  data.message ? toast.success(data.message) : toast.error(data.error);
+  fetchVehiclesWithUsername(username);
+};
+
+const handleDenyTransfer = async (vehicleId) => {
+  const res = await fetch(`http://localhost:5000/api/vehicles/${vehicleId}/deny_transfer`, {
+    method: "PUT",
+  });
+  const data = await res.json();
+  data.message ? toast.success(data.message) : toast.error(data.error);
+  setRefreshRequestsFlag((prev) => !prev); // Refresh transfer list
+};
+
+const handleDeleteVehicle = async (vehicleId) => {
+  const confirmDelete = window.confirm("Are you sure you want to delete this vehicle?");
+  if (!confirmDelete) return;
+
+  const res = await fetch(`http://localhost:5000/api/vehicles/${vehicleId}/delete?username=${username}`, {
+  method: "DELETE"
+});
+
+  const data = await res.json();
+  data.message ? toast.success(data.message) : toast.error(data.error);
+  fetchVehiclesWithUsername(username);
+};
+
+
+
   const handleSearch = async () => {
     try {
       console.log("Searching for:", searchQuery); // Debugging line to check if searchQuery is being passed
@@ -180,6 +230,9 @@ const Dashboard = () => {
   //   };
   //   fetchLogs();
   // }, []);
+
+
+  
   
 
   useEffect(() => {
@@ -215,7 +268,7 @@ const Dashboard = () => {
     const dark = localStorage.getItem("darkMode") === "true";
     setDarkMode(dark);
 
-    //  SET username immediately
+    // 💥 SET username immediately
   if (storedUser?.username) {
     setUsername(storedUser.username);
     fetchVehiclesWithUsername(storedUser.username);
@@ -293,6 +346,17 @@ const Dashboard = () => {
     }
   }, [refreshRequestsFlag]);
 
+  useEffect(() => {
+  if (username && username.toLowerCase() === "admin") {
+    fetch("http://localhost:5000/api/vehicles/transfer_requests")
+      .then((res) => res.json())
+      .then((data) => {
+        setTransferRequests(data);
+      })
+      .catch((err) => console.error("Failed to fetch transfer requests:", err));
+  }
+}, [username, refreshRequestsFlag]);
+
   // const handleLogout = () => {
   //   localStorage.removeItem("userPreference");
   //   navigate("/");
@@ -357,16 +421,20 @@ const Dashboard = () => {
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64Image = reader.result;
       setProfile((prev) => {
-        const updated = { ...prev, profilePicture: imageUrl };
-        localStorage.setItem("userProfileImage", imageUrl);
+        const updated = { ...prev, profilePicture: base64Image };
+        localStorage.setItem("userProfileImage", base64Image);
         return updated;
       });
-    }
-  };
+    };
+    reader.readAsDataURL(file); // 👈 convert to Base64
+  }
+};
 
   const handleSaveProfile = () => {
     localStorage.setItem("userProfileData", JSON.stringify(profile));
@@ -408,6 +476,14 @@ const Dashboard = () => {
     data.message ? toast.success(data.message) : toast.error(data.error);
   };
 
+  const handleApproveTransfer = async (vehicleId) => {
+  const res = await fetch(`http://localhost:5000/api/vehicles/${vehicleId}/approve_transfer`, {
+    method: "PUT",
+  });
+  const data = await res.json();
+  data.message ? toast.success(data.message) : toast.error(data.error);
+  setRefreshRequestsFlag((prev) => !prev); // Refresh view
+};
   // Renew Existing License
   const handleRenewLicense = async (e) => {
     e.preventDefault();
@@ -673,8 +749,11 @@ const Dashboard = () => {
       <div className="border p-6 rounded-lg">
         <h3 className="text-2xl font-semibold mb-3">Register a Vehicle</h3>
         <form
-          onSubmit={async (e) => {
-            e.preventDefault();
+         onSubmit={async (e) => {
+          e.preventDefault();
+
+          if (!taxAmount) {
+            // Step 1: Request tax amount
             const res = await fetch("http://localhost:5000/api/vehicles/register", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -685,13 +764,49 @@ const Dashboard = () => {
                 model,
                 year,
                 color,
+                transaction_id: "dummy", // Required for backend; will be overwritten
               }),
             });
             const data = await res.json();
-            data.message ? toast.success(data.message) : toast.error(data.error);
 
-            setRefreshRequestsFlag((prev) => !prev);
-          }}
+            if (res.ok) {
+              setTaxAmount(data.tax_amount);  // Show tax to user
+              toast.info(`Your tax amount is Rs. ${data.tax_amount}. Please enter a transaction ID.`);
+            } else {
+              toast.error(data.error || "Failed to calculate tax.");
+            }
+          } else {
+            // Step 2: Submit with transaction ID
+            if (!transactionId) {
+              toast.error("Please enter your transaction ID.");
+              return;
+            }
+
+            const res = await fetch("http://localhost:5000/api/vehicles/register", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                username,
+                registration_number,
+                make,
+                model,
+                year,
+                color,
+                transaction_id: transactionId,
+              }),
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+              toast.success("Vehicle submitted successfully!");
+              setTaxAmount(null);
+              setTransactionId("");
+              setRefreshRequestsFlag((prev) => !prev);
+            } else {
+              toast.error(data.error || "Submission failed.");
+            }
+          }
+        }}
           className="grid grid-cols-1 md:grid-cols-2 gap-4"
         >
           {[
@@ -715,6 +830,26 @@ const Dashboard = () => {
               />
             </div>
           ))}
+
+          {taxAmount && (
+        <>
+          <div className="md:col-span-2">
+            <p className="text-green-700 font-semibold mb-2">
+              Your tax amount is Rs. {taxAmount}. Please enter your transaction ID.
+            </p>
+            <label className="block font-medium">Transaction ID</label>
+            <input
+              value={transactionId}
+              onChange={(e) => setTransactionId(e.target.value)}
+              className={`w-full p-2 rounded border ${
+                darkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white border-gray-300"
+              }`}
+              placeholder="Enter Transaction ID"
+              required
+            />
+          </div>
+        </>
+      )}
           <button
             type="submit"
             className="col-span-2 bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
@@ -733,7 +868,7 @@ const Dashboard = () => {
         }`}>
           <thead className={darkMode ? "bg-gray-700" : "bg-indigo-100"}>
             <tr>
-              {["ID", "User", "Reg. No.", "Make", "Model", "Year", "Color", "Approval", "MOT", ...(username.toLowerCase() === "admin" ? ["Actions"] : [])].map((th) => (
+              {["ID", "User", "Reg. No.", "Make", "Model", "Year", "Color","Tax Amount", "Transaction ID", "Approval", "MOT","Actions", ...(username.toLowerCase() === "admin" ? ["Actions"] : [])].map((th) => (
                 <th key={th} className="px-4 py-3 border-b font-medium">{th}</th>
               ))}
             </tr>
@@ -741,35 +876,52 @@ const Dashboard = () => {
           <tbody>
             {vehicles.map((v) => (
               <tr key={v.id} className="border-t">
-                <td className="px-4 py-2">{v.id}</td>
-                <td className="px-4 py-2">{v.username}</td>
-                <td className="px-4 py-2">{v.registration_number}</td>
-                <td className="px-4 py-2">{v.make}</td>
-                <td className="px-4 py-2">{v.model}</td>
-                <td className="px-4 py-2">{v.year}</td>
-                <td className="px-4 py-2">{v.color}</td>
-                <td className="px-4 py-2">{v.approval_status}</td>
-                <td className="px-4 py-2">{v.mot_status}</td>
-                {username.toLowerCase() === "admin" && (
-                  <td className="px-4 py-2 space-x-1">
-                    {v.approval_status === "Pending" && (
-                      <>
-                        <button
-                          onClick={() => handleVehicleAction(v.id, "approve")}
-                          className="px-2 py-1 bg-green-600 text-white rounded"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleVehicleAction(v.id, "deny")}
-                          className="px-2 py-1 bg-red-600 text-white rounded"
-                        >
-                          Deny
-                        </button>
-                      </>
-                    )}
-                  </td>
-                )}
+                 <td className="px-4 py-2">{v.id}</td>
+                  <td className="px-4 py-2">{v.username}</td>
+                  <td className="px-4 py-2">{v.registration_number}</td>
+                  <td className="px-4 py-2">{v.make}</td>
+                  <td className="px-4 py-2">{v.model}</td>
+                  <td className="px-4 py-2">{v.year}</td>
+                  <td className="px-4 py-2">{v.color}</td>
+                  <td className="px-4 py-2">Rs. {v.tax_amount || "N/A"}</td>
+                  <td className="px-4 py-2">{v.transaction_id || "N/A"}</td>
+                  <td className="px-4 py-2">{v.approval_status}</td>
+                  <td className="px-4 py-2">{v.mot_status}</td>
+                <td className="px-4 py-2 space-x-2">
+                  {username.toLowerCase() === "admin" && v.approval_status === "Pending" && (
+                    <>
+                      <button
+                        onClick={() => handleVehicleAction(v.id, "approve")}
+                        className="bg-green-600 text-white px-2 py-1 rounded"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleVehicleAction(v.id, "deny")}
+                        className="bg-red-600 text-white px-2 py-1 rounded"
+                      >
+                        Deny
+                      </button>
+                    </>
+                  )}
+
+                  {username.toLowerCase() !== "admin" && (
+                    <>
+                      <button
+                        onClick={() => handleTransferVehicle(v.id)}
+                        className="bg-blue-500 text-white px-2 py-1 rounded"
+                      >
+                        Transfer
+                      </button>
+                      <button
+                        onClick={() => handleDeleteVehicle(v.id)}
+                        className="bg-red-500 text-white px-2 py-1 rounded"
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -921,67 +1073,134 @@ const Dashboard = () => {
         return <SettingsScreen darkMode={darkMode} />;
 
         case "manageRequests":
-          return (
-            <div className="p-8">
-              <h2 className="text-4xl font-semibold mb-6">Manage License Requests</h2>
-              {username.toLowerCase() !== "admin" ? (
-                <p className="text-red-500">Access Denied. You are not authorized to view this section.</p>
+  return (
+    <div className="p-8 space-y-6">
+      <h2 className="text-4xl font-semibold">Manage Requests</h2>
+
+      {username.toLowerCase() !== "admin" ? (
+        <p className="text-red-500">Access Denied. You are not authorized to view this section.</p>
+      ) : (
+        <>
+          {/* Sub-tabs for License and Vehicle Transfers */}
+          <div className="flex gap-4 mb-4">
+            <button
+              onClick={() => setRequestSubTab("license")}
+              className={`px-4 py-2 rounded-lg ${requestSubTab === "license" ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-800"}`}
+            >
+              License Requests
+            </button>
+            <button
+              onClick={() => setRequestSubTab("transfers")}
+              className={`px-4 py-2 rounded-lg ${requestSubTab === "transfers" ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-800"}`}
+            >
+              Vehicle Transfers
+            </button>
+          </div>
+
+          {/* Sub-tab Content */}
+          {requestSubTab === "license" && (
+            <>
+              {allRequests.length === 0 ? (
+                <p className="text-gray-500">No license requests found.</p>
               ) : (
-                <>
-                  {allRequests.length === 0 ? (
-                    <p className="text-gray-500">No license requests found.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className={`min-w-full border-collapse rounded-lg shadow-lg overflow-hidden ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
-                        <thead className={darkMode ? "bg-gray-700 text-white" : "bg-indigo-100 text-gray-800"}>
-                          <tr>
-                            <th className="px-4 py-3 border-b">ID</th>
-                            <th className="px-4 py-3 border-b">Username</th>
-                            <th className="px-4 py-3 border-b">License Type</th>
-                            <th className="px-4 py-3 border-b">Expiry Date</th>
-                            <th className="px-4 py-3 border-b">Status</th>
-                            <th className="px-4 py-3 border-b">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {allRequests.map((req) => (
-                            <tr key={req.id} className={darkMode ? "border-gray-700" : "border-gray-300"}>
-                              <td className="px-4 py-3 border-b">{req.id}</td>
-                              <td className="px-4 py-3 border-b">{req.username}</td>
-                              <td className="px-4 py-3 border-b">{req.license_type || "N/A"}</td>
-                              <td className="px-4 py-3 border-b">{req.expiry_date || "N/A"}</td>
-                              <td className="px-4 py-3 border-b font-medium">{req.status}</td>
-                              <td className="px-4 py-3 border-b space-x-2">
-                                {req.status !== "Approved" && req.status !== "Denied" && (
-                                  <>
-                                    <button
-                                      onClick={() => handleApproveRequest(req.id)}
-                                      className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
-                                    >
-                                      Approve
-                                    </button>
-                                    <button
-                                      onClick={() => handleDenyRequest(req.id)}
-                                      className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
-                                    >
-                                      Deny
-                                    </button>
-                                  </>
-                                )}
-                                {(req.status === "Approved" || req.status === "Denied") && (
-                                  <span className="text-sm italic text-gray-500">No actions</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
+                <div className="overflow-x-auto">
+                  <table className={`min-w-full border-collapse rounded-lg shadow-lg overflow-hidden ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
+                    <thead className={darkMode ? "bg-gray-700 text-white" : "bg-indigo-100 text-gray-800"}>
+                      <tr>
+                        <th className="px-4 py-3 border-b">ID</th>
+                        <th className="px-4 py-3 border-b">Username</th>
+                        <th className="px-4 py-3 border-b">License Type</th>
+                        <th className="px-4 py-3 border-b">Expiry Date</th>
+                        <th className="px-4 py-3 border-b">Status</th>
+                        <th className="px-4 py-3 border-b">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allRequests.map((req) => (
+                        <tr key={req.id} className={darkMode ? "border-gray-700" : "border-gray-300"}>
+                          <td className="px-4 py-3 border-b">{req.id}</td>
+                          <td className="px-4 py-3 border-b">{req.username}</td>
+                          <td className="px-4 py-3 border-b">{req.license_type || "N/A"}</td>
+                          <td className="px-4 py-3 border-b">{req.expiry_date || "N/A"}</td>
+                          <td className="px-4 py-3 border-b font-medium">{req.status}</td>
+                          <td className="px-4 py-3 border-b space-x-2">
+                            {req.status !== "Approved" && req.status !== "Denied" ? (
+                              <>
+                                <button
+                                  onClick={() => handleApproveRequest(req.id)}
+                                  className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleDenyRequest(req.id)}
+                                  className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                                >
+                                  Deny
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-sm italic text-gray-500">No actions</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </div>
-          );
+            </>
+          )}
+
+          {requestSubTab === "transfers" && (
+            <>
+              {transferRequests.length === 0 ? (
+                <p className="text-gray-500">No transfer requests found.</p>
+              ) : (
+                <table className="min-w-full text-left text-sm border">
+                  <thead>
+                    <tr>
+                      <th className="border px-3 py-2">Vehicle ID</th>
+                      <th className="border px-3 py-2">From</th>
+                      <th className="border px-3 py-2">To</th>
+                      <th className="border px-3 py-2">Reg No.</th>
+                      <th className="border px-3 py-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transferRequests.map((v) => (
+                      <tr key={v.id}>
+                        <td className="border px-3 py-2">{v.id}</td>
+                        <td className="border px-3 py-2">{v.username}</td>
+                        <td className="border px-3 py-2">{v.transfer_to}</td>
+                        <td className="border px-3 py-2">{v.registration_number}</td>
+                        <td className="border px-3 py-2">
+                          <>
+                            <button
+                              onClick={() => handleApproveTransfer(v.id)}
+                              className="bg-green-600 text-white px-2 py-1 rounded mr-2"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleDenyTransfer(v.id)}
+                              className="bg-red-600 text-white px-2 py-1 rounded"
+                            >
+                              Deny
+                            </button>
+                          </>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
 
       default:
         return null;
@@ -1014,13 +1233,13 @@ const Dashboard = () => {
   <div className="flex gap-4 items-center">
     {[
       "profile",
-      "license",
+      ...(JSON.parse(localStorage.getItem("userPreference"))?.username?.toLowerCase() !== "admin" ? ["license"] : []),
+      ...(JSON.parse(localStorage.getItem("userPreference"))?.username?.toLowerCase() === "admin"
+        ? ["manageRequests", "dashboard", "auditLogs", "userSearch"]
+        : []),
       "vehicle",
       "settings",
-      "userSearch",  // Add this line for User Search tab
-      ...(JSON.parse(localStorage.getItem("userPreference"))?.username?.toLowerCase() === "admin"
-        ? ["manageRequests", "dashboard", "auditLogs"]
-        : []),
+      
     ].map((tab) => (
       <button
         key={tab}

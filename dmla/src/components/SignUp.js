@@ -34,9 +34,25 @@ const SignUp = () => {
     localStorage.setItem("darkMode", newMode.toString());
   };
 
+  const calculateAge = (dob) => {
+    const birthDate = new Date(dob);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    return m < 0 || (m === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    // Client-side age validation
+    const age = calculateAge(user.dob);
+    if (age < 16) {
+      setError("You must be at least 16 years old to register.");
+      return;
+    }
+
     try {
       const response = await fetch("http://localhost:5000/api/signup", {
         method: "POST",
@@ -92,14 +108,11 @@ const SignUp = () => {
           </div>
         )}
 
-          <div
-            className={`rounded-2xl shadow-xl border p-8 transition ${
-              darkMode
-                ? "bg-gray-800 border-gray-700 text-white"
-                : "bg-white border-gray-200 text-black"
-            }`}
-          >
-
+        <div
+          className={`rounded-2xl shadow-xl border p-8 transition ${
+            darkMode ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-200 text-black"
+          }`}
+        >
           <form onSubmit={handleSubmit} className="space-y-5">
             {[
               { label: "Full Name", name: "full_name", type: "text" },
