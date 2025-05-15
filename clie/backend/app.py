@@ -19,7 +19,7 @@ def log_action(action, details):
     conn.close()
 
 
-# Initialise DB
+# Initialize DB
 init_db()
 
 app = Flask(__name__)
@@ -59,6 +59,16 @@ def signup():
 
     if not username or not password or not email:
         return jsonify({"error": "Missing required fields"}), 400
+
+    # ➕ AGE RESTRICTION VALIDATION
+    try:
+        birth_date = datetime.strptime(dob, "%Y-%m-%d")
+        today = datetime.today()
+        age = (today - birth_date).days // 365
+        if age < 16:
+            return jsonify({"error": "Users must be at least 16 years old to sign up."}), 400
+    except Exception:
+        return jsonify({"error": "Invalid date of birth format."}), 400
 
     hashed_password = hash_password(password)
 
@@ -276,30 +286,30 @@ def deny_license_request(request_id):
 
 # ------------------- VEHICLE ENDPOINTS -------------------
 
-@app.route('/api/vehicles/register', methods=['POST'])
-def register_vehicle():
-    data = request.json
-    username = data.get("username")
-    registration_number = data.get("registration_number")
-    make = data.get("make")
-    model = data.get("model")
-    year = data.get("year")
-    color = data.get("color")
+# @app.route('/api/vehicles/register', methods=['POST'])
+# def register_vehicle():
+#     data = request.json
+#     username = data.get("username")
+#     registration_number = data.get("registration_number")
+#     make = data.get("make")
+#     model = data.get("model")
+#     year = data.get("year")
+#     color = data.get("color")
 
-    if not username or not registration_number:
-        return jsonify({"error": "Missing required fields"}), 400
+#     if not username or not registration_number:
+#         return jsonify({"error": "Missing required fields"}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO vehicles (username, registration_number, make, model, year, color)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (username, registration_number, make, model, year, color))
-    conn.commit()
-    conn.close()
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
+#     cursor.execute("""
+#         INSERT INTO vehicles (username, registration_number, make, model, year, color)
+#         VALUES (?, ?, ?, ?, ?, ?)
+#     """, (username, registration_number, make, model, year, color))
+#     conn.commit()
+#     conn.close()
 
-    log_action("Vehicle Registration", f"Vehicle with registration number {registration_number} registered.")
-    return jsonify({"message": "Vehicle registered and pending approval"}), 201
+#     log_action("Vehicle Registration", f"Vehicle with registration number {registration_number} registered.")
+#     return jsonify({"message": "Vehicle registered and pending approval"}), 201
 
 
 
@@ -320,25 +330,22 @@ def get_analytics():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Count total users
     cursor.execute("SELECT COUNT(*) FROM users")
     total_users = cursor.fetchone()[0]
 
-    # Count pending license requests
     cursor.execute("SELECT COUNT(*) FROM licenses WHERE status = 'Pending'")
     pending_licenses = cursor.fetchone()[0]
 
-    # Count vehicles registered
     cursor.execute("SELECT COUNT(*) FROM vehicles WHERE approval_status = 'Pending'")
     pending_vehicles = cursor.fetchone()[0]
 
-    # License types issued
     cursor.execute("SELECT license_type, COUNT(*) FROM licenses GROUP BY license_type")
     license_types = cursor.fetchall()
+    license_types = [tuple(row) for row in license_types]  # Serialize Row object to tuple
 
-    # MOT status changes (Pending, Valid, Invalid, Expired)
     cursor.execute("SELECT mot_status, COUNT(*) FROM vehicles GROUP BY mot_status")
     mot_statuses = cursor.fetchall()
+    mot_statuses = [tuple(row) for row in mot_statuses]  # Serialize Row object to tuple
 
     conn.close()
 
@@ -404,11 +411,209 @@ def search_users():
         return jsonify({"error": "No users found"}), 404
     
 
+# Get all vehicles (admin)
+@app.route('/api/vehicles', methods=['GET'])
+def get_all_vehicles():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM vehicles")
+    vehicles = cursor.fetchall()
+    conn.close()
+    return jsonify([dict(v) for v in vehicles]), 200
+
+# Get vehicles for a specific user
+@app.route('/api/vehicles/<username>', methods=['GET'])
+def get_user_vehicles(username):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM vehicles WHERE username = ?", (username,))
+    vehicles = cursor.fetchall()
+    conn.close()
+    return jsonify([dict(v) for v in vehicles]), 200
+
+# Approve a vehicle (Admin)
+@app.route('/api/vehicles/<int:vehicle_id>/approve', methods=['PUT'])
+def approve_vehicle(vehicle_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE vehicles SET approval_status = ? WHERE id = ?", ("Approved", vehicle_id))
+    conn.commit()
+    conn.close()
+    log_action("Vehicle Approved", f"Vehicle ID {vehicle_id} was approved.")
+    return jsonify({"message": "Vehicle approved successfully"}), 200
+
+# Deny a vehicle (Admin)
+@app.route('/api/vehicles/<int:vehicle_id>/deny', methods=['PUT'])
+def deny_vehicle(vehicle_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE vehicles SET approval_status = ? WHERE id = ?", ("Denied", vehicle_id))
+    conn.commit()
+    conn.close()
+    log_action("Vehicle Denied", f"Vehicle ID {vehicle_id} was denied.")
+    return jsonify({"message": "Vehicle denied successfully"}), 200
+
+@app.route('/api/vehicles/<int:vehicle_id>/mot', methods=['PUT'])
+def update_mot_status(vehicle_id):
+    data = request.json
+    mot_status = data.get('mot_status')
+
+    if mot_status not in ['Pending', 'Valid', 'Invalid', 'Expired']:
+        return jsonify({"error": "Invalid MOT status"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE vehicles SET mot_status = ? WHERE id = ?", (mot_status, vehicle_id))
+    conn.commit()
+    conn.close()
+
+    log_action("MOT Status Updated", f"Vehicle ID {vehicle_id} MOT status set to {mot_status}.")
+    return jsonify({"message": f"MOT status updated to {mot_status}"}), 200
+
+# Transfer request by owner
+@app.route('/api/vehicles/transfer_request', methods=['POST'])
+def transfer_vehicle_request():
+    data = request.json
+    from_user = data.get("from_user")
+    to_user = data.get("to_user")
+    vehicle_id = data.get("vehicle_id")
+
+    if not from_user or not to_user or not vehicle_id:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Check if recipient exists
+    cursor.execute("SELECT * FROM users WHERE username = ?", (to_user,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({"error": "Recipient user does not exist."}), 404
+
+    # Mark the vehicle transfer request
+    cursor.execute("""
+        UPDATE vehicles
+        SET transfer_to = ?, transfer_status = ?
+        WHERE id = ? AND username = ?
+    """, (to_user, 'Pending', vehicle_id, from_user))
+    conn.commit()
+    conn.close()
+
+    log_action("Vehicle Transfer Requested", f"{from_user} requested to transfer vehicle {vehicle_id} to {to_user}.")
+    return jsonify({"message": "Transfer request submitted."}), 200
 
 
+# Admin approval
+@app.route('/api/vehicles/<int:vehicle_id>/approve_transfer', methods=['PUT'])
+def approve_transfer(vehicle_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM vehicles WHERE id = ? AND transfer_status = 'Pending'", (vehicle_id,))
+    vehicle = cursor.fetchone()
+
+    if not vehicle:
+        conn.close()
+        return jsonify({"error": "No such pending transfer."}), 404
+
+    cursor.execute("""
+        UPDATE vehicles
+        SET username = ?, transfer_status = NULL, transfer_to = NULL
+        WHERE id = ?
+    """, (vehicle["transfer_to"], vehicle_id))
+    conn.commit()
+    conn.close()
+
+    log_action("Vehicle Transfer Approved", f"Vehicle {vehicle_id} transferred to {vehicle['transfer_to']}.")
+    return jsonify({"message": "Transfer approved."}), 200
 
 
-# Add remaining vehicle-related routes like approve, deny, update MOT status here
+@app.route('/api/vehicles/<int:vehicle_id>/delete', methods=['DELETE'])
+def delete_vehicle(vehicle_id):
+    username = request.args.get("username")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM vehicles WHERE id = ? AND username = ?", (vehicle_id, username))
+    conn.commit()
+    conn.close()
+
+    log_action("Vehicle Deleted", f"Vehicle {vehicle_id} deleted by {username}.")
+    return jsonify({"message": "Vehicle deleted successfully"}), 200
+
+@app.route('/api/vehicles/transfer_requests', methods=['GET'])
+def get_pending_transfer_requests():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM vehicles WHERE transfer_status = 'Pending'")
+    vehicles = cursor.fetchall()
+    conn.close()
+    return jsonify([dict(v) for v in vehicles]), 200
+
+@app.route('/api/vehicles/<int:vehicle_id>/deny_transfer', methods=['PUT'])
+def deny_transfer(vehicle_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM vehicles WHERE id = ? AND transfer_status = 'Pending'", (vehicle_id,))
+    vehicle = cursor.fetchone()
+
+    if not vehicle:
+        conn.close()
+        return jsonify({"error": "No such pending transfer."}), 404
+
+    cursor.execute("""
+        UPDATE vehicles
+        SET transfer_status = NULL, transfer_to = NULL
+        WHERE id = ?
+    """, (vehicle_id,))
+    conn.commit()
+    conn.close()
+
+    log_action("Vehicle Transfer Denied", f"Vehicle {vehicle_id} transfer request was denied.")
+    return jsonify({"message": "Transfer request denied."}), 200
+
+
+@app.route('/api/vehicles/register', methods=['POST'])
+def register_vehicle():
+    data = request.json
+    username = data.get("username")
+    registration_number = data.get("registration_number")
+    make = data.get("make")
+    model = data.get("model")
+    year = data.get("year")
+    color = data.get("color")
+    transaction_id = data.get("transaction_id")
+
+    if not username or not registration_number or not transaction_id:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    # Generate a random tax amount (e.g. between 5000 and 15000)
+    tax_amount = random.randint(5000, 15000)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO vehicles (
+            username, registration_number, make, model, year, color,
+            tax_amount, transaction_id, tax_status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        username, registration_number, make, model, year, color,
+        tax_amount, transaction_id, 'Paid'
+    ))
+    conn.commit()
+    conn.close()
+
+    log_action("Vehicle Registration", f"{username} registered {registration_number} with tax ID {transaction_id}.")
+
+    return jsonify({
+        "message": "Vehicle registered and pending approval",
+        "tax_amount": tax_amount
+    }), 201
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

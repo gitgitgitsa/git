@@ -39,6 +39,7 @@ def init_db():
     ''')
 
     # Create vehicles table
+   # Create vehicles table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS vehicles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,11 +49,17 @@ def init_db():
             model TEXT,
             year INTEGER,
             color TEXT,
+            transfer_to TEXT,
+            transfer_status TEXT,
             mot_status TEXT DEFAULT 'Pending',
             approval_status TEXT DEFAULT 'Pending',
+            tax_amount INTEGER,
+            transaction_id TEXT,
+            tax_status TEXT DEFAULT 'Unpaid',
             FOREIGN KEY (username) REFERENCES users(username)
         )
     ''')
+
     
     # Audit Logs table
     cursor.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
